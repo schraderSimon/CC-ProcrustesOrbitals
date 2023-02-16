@@ -4,3 +4,4 @@ This folder contains the "backbone" of the thesis, e.g. the methods and classes 
 - `rccsd_gs.py` contains the necessary algorithms & data to implement AMP-CCEVC using RHF determinants and spin-adapted CCSD
 - `qs_ref.py` adapts orbitalSystems in Schøyens code, adapted in such a way that Procrustes orbitals are produced.
 - `rhs_t.py` and `rccsd.py` contains the code for restricted CCSD amplitude calculations. It also contains code for parameter-reduced AMP-CCEVC.
+- `machinelearning.py` contains the relevant data to learn Gaussian processes. 
