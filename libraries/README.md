@@ -1,4 +1,4 @@
-This folder contains the "backbone" of the thesis, e.g. the methods and classes to implement eigenvector continuation.
+This folder contains the "backbone" of the article, e.g. the methods and classes to implement eigenvector continuation.
 
 - `func_lib.py`, contain much-used convenience functions, such as the Procrustes algorithm, canonical orthonormalization etc.
 - `rccsd_gs.py` contains the necessary algorithms & data to implement AMP-CCEVC using RHF determinants and spin-adapted CCSD
