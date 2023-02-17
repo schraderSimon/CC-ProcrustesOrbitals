@@ -27,7 +27,7 @@ except FileNotFoundError:
     np.savetxt("inputs/ethene_ref_S.txt",reference_overlap)
 sample_geom1=np.linspace(-0.9,2.7,2)
 num_samples=2
-max_samples=7
+max_samples=10
 sample_indices=[0,80] #Which samples to start with (in the index list of geom_alphas1)
 geom_alphas1=np.linspace(-1,2.8,77)
 target_U,target_C=get_U_matrix(geom_alphas1,molecule,basis,reference_determinant,reference_overlap)
@@ -70,8 +70,6 @@ while num_samples < max_samples: #As long as samples are to be added
     t2s.append(newt2)
     l1s.append(newt1)
     l2s.append(newt2)
-    print(stds)
-    print(sample_geom)
     num_samples+=1
 evcsolver=EVCSolver(geom_alphas,molecule,basis,reference_determinant,t1s,t2s,l1s,l2s,reference_overlap,sample_x=sample_geom,mix_states=False)
 
@@ -90,7 +88,7 @@ ml_params=[]
 for i in range(len(sample_geom)):
     mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
     predictions.append(mean+np.mean(t_coefs[i]))
-ml_params.append(parameters)
+    ml_params.append(parameters)
 
 t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
 t1_machinelearn=[]

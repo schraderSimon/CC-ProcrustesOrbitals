@@ -17,6 +17,20 @@ matplotlib.rcParams.update({'lines.linewidth': 3})
 np.set_printoptions(linewidth=300,precision=6,suppress=True)
 
 def get_U_matrix(x,molecule,basis,reference_determinant,reference_overlap):
+    """
+    Returns the Procrustes orbitals C and and the rotation from the "intrinsic" MOs to Procrustes MOs.
+
+    Input:
+    x (list of numbers or lists/arrays/tuples): The molecular geometries
+    molecule (function): Takes x (or *x) as input and returns the geometries of all particles
+    basis: The basis set used.
+    reference_determinant: The reference MO coefficient matrix.
+    reference_overlap: The overlap matrix at the reference geometry.
+
+    Returns:
+    U (list of matrices): The rotation to go from intrinsic MOs to Procrustes MOs for all geometries x.
+    C (list of matrices): The Procrustes orbitals for all geometries x.
+    """
     U_matrices=[]
     C_matrices=[]
     for xval in x:
@@ -54,6 +68,9 @@ def make_mol(molecule,x,basis="6-31G",charge=0):
 	return mol
 
 def get_reference_determinant(molecule_func,refx,basis,charge=0,return_overlap=False):
+    """
+    Obtain reference MO coefficient matrix for a molecule.
+    """
     mol = gto.Mole()
     mol.unit = "bohr"
     mol.charge = charge
@@ -83,13 +100,16 @@ def CCSD_energy_curve(molecule_func,xvals,basis):
 	return E
 
 def orthogonal_procrustes_ovlp(mo_new,reference_mo,overlap_new,overlap_reference):
+    """
+    Implements the algorithm to obtain the "best" Procrustes fit.
+    """
     overlap_new_sqrtm=np.real(scipy.linalg.sqrtm(overlap_new))
     overlap_reference_sqrtm=np.real(scipy.linalg.sqrtm(overlap_reference))
     A=mo_new
     B=reference_mo.copy()
 
-    M=A.T@overlap_new_sqrtm@overlap_reference_sqrtm@B # This does not....
-    #M=A.T@B #This works just the way I expected and intent to!!
+    M=A.T@overlap_new_sqrtm@overlap_reference_sqrtm@B 
+
     U,s,Vt=scipy.linalg.svd(M)
     return U@Vt, 0
 
@@ -120,7 +140,7 @@ def localize_procrustes_ovlp(mol,mo_coeff,mo_occ,ref_mo_coeff,overlap_new,overla
     elif mix_states==True:
         mo=mo_coeff[:,active_orbitals]
         premo=ref_mo_coeff[:,active_orbitals]
-        R,scale=orthogonal_procrustes(mo,premo)
+        R,scale=orthogonal_procrustes_ovlp(mo,premo,overlap_new,overlap_reference)
         mo=mo@R
 
         mo_coeff_new[:,active_orbitals]=np.array(mo)

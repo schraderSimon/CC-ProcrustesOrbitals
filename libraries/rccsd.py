@@ -18,7 +18,7 @@ Adapted from https://github.com/HyQD/coupled-cluster/blob/eb843dcae69106592040a8
 
 """
 
-from coupled_cluster.cc import CoupledCluster
+from cc import CoupledCluster
 
 from coupled_cluster.rccsd.rhs_t import (
     compute_t_1_amplitudes,

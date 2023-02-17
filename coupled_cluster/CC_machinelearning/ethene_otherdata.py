@@ -25,7 +25,7 @@ except FileNotFoundError:
     reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
     np.savetxt("inputs/ethene_ref_det.txt",reference_determinant)
     np.savetxt("inputs/ethene_ref_S.txt",reference_overlap)
-sample_geom1=np.linspace(-0.9,2.7,10)
+sample_geom1=np.linspace(-0.9,2.7,7)
 import pickle
 geom_alphas1=np.linspace(-1,2.8,77)
 geom_alphas=[[x] for x in geom_alphas1]

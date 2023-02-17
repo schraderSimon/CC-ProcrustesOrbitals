@@ -77,7 +77,6 @@ def orthonormalize_ts_lowdin(t1s: list,t2s: list):
     t_tot_old=t_tot.copy()
     t_tot=t_tot
     overlap=t_tot@t_tot.T
-    print(overlap)
     overlap_12=scipy.linalg.sqrtm(overlap)
     t_tot=np.linalg.inv(overlap_12)@t_tot
     t1_new=[]
@@ -147,12 +146,7 @@ def setUpsamples(sample_x,molecule_func,basis,rhf_mo_ref,rhf_S_ref,mix_states=Fa
 
 class EVCSolver():
     """
-    Class to solve EVC equations. Contains AMP-CCEVC and some helper functions functions. Uses restricted determinants and restricted CC theory.
-
-    Methods:
-    __init__: Initialize
-    solve_CCSD: Return CCSD energies at self.all_x
-    solve_AMP_CCSD: solves AMP-CCEVC equations and returns AMP-CCEVC energies for given sample amplitudes
+    Class to solve EVC equations. Contains tr. sum AMP-CCEVC and some helper functions functions. Uses restricted determinants and restricted CC theory.
     """
     def __init__(self,all_x,molecule_func,basis,reference_determinant,t1s,t2s,l1s,l2s,reference_overlap=None,givenC=False,sample_x=None,mix_states=False,natorb_truncation=None):
         self.all_x=all_x
@@ -274,7 +268,6 @@ class EVCSolver():
                 truncation=self.natorb_truncation,
                 return_C=True
             )
-            print(x_alpha)
             if basis_change_from_Procrustes:
                 U=np.linalg.inv(procrustes_orbitals[k])@C_canonical
                 t1_new,t2_new=basischange_clusterOperator(U,start_guess_t1_list[k],start_guess_t2_list[k])
@@ -322,7 +315,7 @@ class EVCSolver():
         return E_CCSD
     def solve_AMP_CCSD(self,occs=1,virts=0.5,xtol=1e-5,maxfev=60, start_guess_list=None):
         """
-        Solves the AMP_CCSD equations.
+        Solves the truncated sum AMP-CCEVCSD equations.
 
         Input:
         occs (float): The percentage (if below 1) or number (if above 1) of occupied orbitals to include in amplitude calculations
@@ -331,7 +324,7 @@ class EVCSolver():
         maxfev (int): Maximal number of Newton's method iterations
         start_guess (list): List of lists with starting parameters [[c_1,\dots,c_L]_1, [c_1,\dots,c_L]_2, \dots]
         Returns:
-        energy (list): AMP-CCEVC Energies at all_x.
+        energy (list): truncated sum AMP-CCEVC Energies at all_x.
         """
         energy=[]
         t1_copy=self.t1s #Reset after a run of AMP_CCEVC such that WF-CCEVC can be run afterwards
@@ -415,7 +408,7 @@ class EVCSolver():
             t2_error = rhs_t.compute_t_2_amplitudes(f, system.u, t1, t2, system.o, system.v, np)
             max_proj_error=np.max((np.max(abs(t1_error)),np.max(abs(t2_error)) ))
             self.projection_errors.append(max_proj_error)
-            newEn=rhs_e.compute_rccsd_ground_state_energy(f, system.u, t1, t2, system.o, system.v, np)+ESCF
+            newEn=rhs_e.compute_rccsd_correlation_energy(f, system.u, t1, t2, system.o, system.v, np)+ESCF
             if sol.success==False:
                 energy.append(np.nan)
             else:
@@ -566,5 +559,4 @@ class EVCSolver():
                 updates.pop(0)
             iter+=1
         success=iter<maxfev
-        #print("Num iter: %d"%iter)
         return sucess(guess,success,iter)

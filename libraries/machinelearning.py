@@ -7,11 +7,19 @@ from scipy.linalg import block_diag
 from scipy.optimize import minimize, minimize_scalar
 
 def RBF_kernel_unitary_matrices(list_U1,list_U2,kernel_params=[1,1]):
-    #if kernel_params[1]<-0.5:
-    #    kernel_params[1]=-0.5
+    """
+    Returns the kernel matrix for a set of unitary matrices.
+
+    Input:
+    list_U1 (list of matrices): The set of data X
+    list_U1 (list of matrices): The set of data X'
+    kernel_params: Start guess for the parameters sigma_f and l (the exponent is taken of them for numerical reasons)
+
+    Returns: Ther kernel matrix
+    """
     l_1=np.exp(kernel_params[1])
     sigma_1=np.exp(kernel_params[0])
-    noise=1e-10#np.exp(kernel_params[4])
+    noise=1e-10
     norm=np.zeros((len(list_U1),len(list_U2)))
     n=min([len(list_U1),len(list_U2)])
     for i in range(len(list_U1)):
@@ -42,6 +50,8 @@ def GP(X1, y1, X2, kernel_func,kernel_params):
     Σ2 = Σ22 - (solved @ Σ12)
     return μ2, Σ2  # mean, covariance
 def log_likelihood(kernel_params,data_X,y,kernel):
+    """
+    Returns the log likelihood given the data ther kernel function, and the kernel parameters"""
     cov_matrix=kernel(data_X,data_X,kernel_params) #The covariance matrix
     cov_matrix=cov_matrix
     det=np.linalg.det(cov_matrix)
@@ -49,12 +59,17 @@ def log_likelihood(kernel_params,data_X,y,kernel):
     inv_times_data=np.linalg.solve(cov_matrix,y)
     return -(-0.5*y.T@inv_times_data-0.5*log_det)
 def find_best_model(U_list,y,kernel,start_params):
+    #Given a list of inputs U and the target y, and a kernel function, and a start guess, returns the optimized model.
     y_new=y
     sol=minimize(log_likelihood,x0=start_params,args=(U_list,y,kernel),bounds=[(None,None),(0.25,None)])
     #Uses exponential terms, and e^0.25~1.3 as stated in the paper
     best_sigma=sol.x
     return best_sigma
 def get_model(U_list,y,kernel,U_list_target,start_params=[-2,0]):
+    """
+    Put together the previous functions: Given the training data and the target matrices,
+    predicts the mean, the variance and the target sigma.
+    """
     best_sigma=find_best_model(U_list,y,kernel,start_params)
     new, Σ2 = GP(U_list, y, U_list_target, kernel,best_sigma)
     return new, np.diag(Σ2),np.exp(best_sigma)

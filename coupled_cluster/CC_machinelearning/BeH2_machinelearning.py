@@ -27,7 +27,6 @@ for i in range(len(x)):
     for j in range(len(x)):
         sample_geom_new.append([x[i],x[j]])
 sample_geom=np.array(sample_geom_new)
-print(len(sample_geom))
 span=np.linspace(2,6,10)
 geom_alphas=[]
 for x in span:
@@ -57,7 +56,7 @@ for i in range(len(sample_geom)):
     mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
     predictions.append(mean+np.mean(t_coefs[i]))
     stds+=(std)
-ml_params.append(parameters)
+    ml_params.append(parameters)
 means=np.array(predictions)
 for i in range(len(geom_alphas)):
     t1_temp=np.zeros_like(t1s[0])
@@ -69,7 +68,6 @@ for i in range(len(geom_alphas)):
     t2_machinelearn.append(t2_temp)
 
 
-print("Initial")
 xtol=1e-6 #Convergence tolerance
 E_ML_U=evcsolver.calculate_CCSD_energies_from_guess(t1_machinelearn,t2_machinelearn,target_Procrustes,xtol=xtol) #But we are not getting them... BITCH ASS
 

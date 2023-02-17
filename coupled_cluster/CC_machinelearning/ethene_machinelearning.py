@@ -57,7 +57,7 @@ for i in range(len(sample_geom1)):
     mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
     predictions.append(mean+np.mean(t_coefs[i]))
     stds+=(std)
-ml_params.append(parameters)
+    ml_params.append(parameters)
 means=np.array(predictions)
 for i in range(len(geom_alphas1)):
     t1_temp=np.zeros_like(t1s[0])
