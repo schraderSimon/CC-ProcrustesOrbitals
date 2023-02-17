@@ -3,7 +3,7 @@
 This repo contains all of the code required to reproduce the results from our paper _link follows_. 
 
 ## Prerequisites 
-In addition to standard python libraries, [pyscf](https://pyscf.org/) is required, as are Schøyen's [coupled cluster module](https://github.com/HyQD/coupled-cluster) and [Quantum Systems module](https://github.com/HyQD/quantum-systems). 
+In addition to standard python libraries, [pyscf](https://pyscf.org/) is required, as are HyQD's [coupled cluster module](https://github.com/HyQD/coupled-cluster) and [Quantum Systems module](https://github.com/HyQD/quantum-systems). 
 
 ## How to reproduce our data
 The folder _coupled_cluster/cc-machinelearning_ contains 12 files, 3 of which have a name that begins with _plot_. Running the remaining 9 files produces a one file each, that can be read with [pickle](https://docs.python.org/3/library/pickle.html). 
