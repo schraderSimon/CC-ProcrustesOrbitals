@@ -34,7 +34,7 @@ Modified from the original source code:
     https://github.com/psi4/psi4numpy/blob/cbef6ddcb32ccfbf773befea6dc4aaae2b428776/Coupled-Cluster/RHF/helper_ccenergy.py
 
 Further modified from
-    https://github.com/HyQD/coupled-cluster/
+    https://github.com/HyQD/coupled-cluster/blob/eb843dcae69106592040a88a4fbe530520c651f6/coupled_cluster/rccsd/rhs_t.py
 
 """
 

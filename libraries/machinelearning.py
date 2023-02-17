@@ -6,9 +6,9 @@ import sys
 from scipy.linalg import block_diag
 from scipy.optimize import minimize, minimize_scalar
 
-def RBF_kernel_unitary_matrices(list_U1,list_U2,kernel_params=[1,1,1,1,1]):
-    if kernel_params[1]<-0.5:
-        kernel_params[1]=-0.5
+def RBF_kernel_unitary_matrices(list_U1,list_U2,kernel_params=[1,1]):
+    #if kernel_params[1]<-0.5:
+    #    kernel_params[1]=-0.5
     l_1=np.exp(kernel_params[1])
     sigma_1=np.exp(kernel_params[0])
     noise=1e-10#np.exp(kernel_params[4])
@@ -46,17 +46,15 @@ def log_likelihood(kernel_params,data_X,y,kernel):
     cov_matrix=cov_matrix
     det=np.linalg.det(cov_matrix)
     log_det=np.log(det)
-    #inverse=np.linalg.inv(cov_matrix+1e-10*np.eye(len(cov_matrix)))
     inv_times_data=np.linalg.solve(cov_matrix,y)
     return -(-0.5*y.T@inv_times_data-0.5*log_det)
 def find_best_model(U_list,y,kernel,start_params):
     y_new=y
-    sol=minimize(log_likelihood,x0=start_params,args=(U_list,y,kernel),bounds=[(None,None),(0.5,None),(None,None),(1,None),(None,None)])
+    sol=minimize(log_likelihood,x0=start_params,args=(U_list,y,kernel),bounds=[(None,None),(0.25,None)])
+    #Uses exponential terms, and e^0.25~1.3 as stated in the paper
     best_sigma=sol.x
-    print(best_sigma,sol.fun)
-    #print(kernel(U_list,U_list,sol.x))
     return best_sigma
-def get_model(U_list,y,kernel,U_list_target,start_params=[-2,0,0,0,0]):
+def get_model(U_list,y,kernel,U_list_target,start_params=[-2,0]):
     best_sigma=find_best_model(U_list,y,kernel,start_params)
     new, Σ2 = GP(U_list, y, U_list_target, kernel,best_sigma)
-    return new, np.diag(Σ2)
+    return new, np.diag(Σ2),np.exp(best_sigma)

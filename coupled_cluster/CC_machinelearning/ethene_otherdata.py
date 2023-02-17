@@ -7,8 +7,6 @@ from rccsd_gs import *
 from machinelearning import *
 from func_lib import *
 from numba import jit
-from matrix_operations import *
-from helper_functions import *
 basis = 'cc-pVDZ'
 #basis="6-31G*"
 def molecule(x:float)->str:
@@ -19,8 +17,15 @@ def molecule(x:float)->str:
 refx=[0]
 print(molecule(*refx))
 charge=0
-reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,return_overlap=True)
-sample_geom1=np.linspace(-0.9,2.7,7)
+"""This procedure guarantees that exactly the same coefficient matrices at all geometries are produced, for reproducibility"""
+try:
+    reference_determinant=np.loadtxt("inputs/ethene_ref_det.txt")
+    reference_overlap=np.loadtxt("inputs/ethene_ref_S.txt")
+except FileNotFoundError:
+    reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
+    np.savetxt("inputs/ethene_ref_det.txt",reference_determinant)
+    np.savetxt("inputs/ethene_ref_S.txt",reference_overlap)
+sample_geom1=np.linspace(-0.9,2.7,10)
 import pickle
 geom_alphas1=np.linspace(-1,2.8,77)
 geom_alphas=[[x] for x in geom_alphas1]
@@ -37,7 +42,7 @@ xtol=1e-8 #Convergence tolerance
 E_CCSD=evcsolver.solve_CCSD_previousgeometry(target_Procrustes,xtol=xtol)
 niter_prevGeom=evcsolver.num_iter
 
-E_CCSD,E_HF=evcsolver.solve_CCSD_noProcrustes(xtol=xtol)
+E_HF,E_CCSD=evcsolver.solve_CCSD_noProcrustes(xtol=xtol)
 niter_CCSD=evcsolver.num_iter
 
 E_AMP_red_10=evcsolver.solve_AMP_CCSD(occs=1,virts=0.1,xtol=xtol)
@@ -66,6 +71,9 @@ outdata["energies_CCSD"]=E_CCSD
 outdata["energies_AMP_20"]=E_AMP_red_20
 outdata["energies_AMP_10"]=E_AMP_red_10
 outdata["energies_HF"]=E_HF
+outdata["sample_t1"]=t1s
+outdata["sample_t2"]=t2s
+
 
 file="energy_data/ethene_AMPCCEVC_%s_%d.bin"%(basis,len(sample_geom1))
 import pickle

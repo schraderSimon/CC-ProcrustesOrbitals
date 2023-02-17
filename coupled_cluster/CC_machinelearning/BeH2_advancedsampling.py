@@ -4,8 +4,6 @@ from rccsd_gs import *
 from func_lib import *
 from numba import jit
 from machinelearning import *
-from matrix_operations import *
-from helper_functions import *
 from mpl_toolkits.axes_grid1 import ImageGrid
 
 molecule_name="BeH2"
@@ -16,7 +14,14 @@ charge = 0
 def molecule(x,y):
     return """Be 0 0 0; H -%f 0 0; H %f 0 0"""%(x,y)
 refx=(2,2)
-reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
+"""This procedure guarantees that exactly the same coefficient matrices at all geometries are produced, for reproducibility"""
+try:
+    reference_determinant=np.loadtxt("inputs/BeH2_ref_det.txt")
+    reference_overlap=np.loadtxt("inputs/BeH2_ref_S.txt")
+except FileNotFoundError:
+    reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
+    np.savetxt("inputs/BeH2_ref_det.txt",reference_determinant)
+    np.savetxt("inputs/BeH2_ref_S.txt",reference_overlap)
 span=np.linspace(2,6,10)
 geom_alphas=[]
 for x in span:
@@ -25,17 +30,17 @@ for x in span:
 sample_geom=[(2.1,2.1),(2.1,5.9),(5.9,2.1),(5.9,5.9)]
 x, y = np.meshgrid(span,span)
 
-target_U,target_C=get_U_matrix(geom_alphas1,molecule,basis,reference_determinant,reference_overlap)
+target_U,target_C=get_U_matrix(geom_alphas,molecule,basis,reference_determinant,reference_overlap)
 
 """
 Set up machine learning for t amplitudes
 """
 num_samples=4
 max_samples=25
-sample_U,sample_C=get_U_matrix(sample_geom1,molecule,basis,reference_determinant,reference_overlap)
+sample_U,sample_C=get_U_matrix(sample_geom,molecule,basis,reference_determinant,reference_overlap)
 t1s,t2s,l1s,l2s,sample_energies=setUpsamples(sample_geom,molecule,basis,reference_determinant,reference_overlap,mix_states=False,type="procrustes")
 
-while num_samples < max_samples: #As long as I want to add samples:
+while num_samples < max_samples: #As long as samples are to be added
 
     evcsolver=EVCSolver(geom_alphas,molecule,basis,reference_determinant,t1s,t2s,l1s,l2s,reference_overlap,sample_x=sample_geom,mix_states=False)
 
@@ -45,16 +50,16 @@ while num_samples < max_samples: #As long as I want to add samples:
     t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
 
     kernel=RBF_kernel_unitary_matrices #Use standard RBF kernel
-    stds=np.ones(len(geom_alphas))
+    stds=np.zeros(len(geom_alphas))
     predictions=[]
     for i in range(len(sample_geom)):
-        mean,std=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
+        mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
         predictions.append(mean+np.mean(t_coefs[i]))
         stds+=(std)
-    largest_std_pos=np.argmax(stds) #The position with the largest std
+    largest_std_pos=np.argmax(stds**2) #The position with the largest variance
     sample_geom.append(geom_alphas[largest_std_pos])
     sample_U.append(target_U[largest_std_pos])
-    newt1,newt2,newl1,newl2,nwesample_energies=setUpsamples([sample_geom[-1]],molecule,basis,reference_determinant,mix_states=False,type="procrustes")
+    newt1,newt2,newl1,newl2,nwesample_energies=setUpsamples([sample_geom[-1]],molecule,basis,reference_determinant,reference_overlap,mix_states=False,type="procrustes")
     t1s.append(newt1)
     t2s.append(newt2)
     l1s.append(newt1)
@@ -70,12 +75,13 @@ Set up machine learning for t amplitudes
 t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
 
 kernel=RBF_kernel_unitary_matrices #Use standard RBF kernel
-stds=np.ones(len(geom_alphas))
 predictions=[]
+ml_params=[]
 for i in range(len(sample_geom)):
-    mean,std=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
+    mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
     predictions.append(mean+np.mean(t_coefs[i]))
-    stds+=(std)
+
+ml_params.append(parameters)
 t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
 t1_machinelearn=[]
 t2_machinelearn=[]
@@ -84,7 +90,7 @@ stds=np.zeros(len(geom_alphas))
 predictions=[]
 
 for i in range(len(sample_geom)):
-    mean,std=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
+    mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
     predictions.append(mean+np.mean(t_coefs[i]))
     stds*=(std)
 
@@ -118,7 +124,10 @@ outdata["target_U"]=target_U
 outdata["CC_sample_amplitudes_procrustes"]=[t1s_orth,t2s_orth]
 outdata["CC_sample_amplitudes"]=[t1s,t2s,l1s,l2s]
 outdata["reference_determinant"]=reference_determinant
-
+outdata["sample_t1"]=t1s_orth
+outdata["sample_t2"]=t2s_orth
+outdata["t_transform"]=t_coefs
+outdata["Machine_learning_parameters"]=ml_params
 outdata["energies_ML"]=E_ML_U
 file="energy_data/BeH2_machinelearning_bestGeometries_%s_%d.bin"%(basis,len(sample_geom))
 import pickle

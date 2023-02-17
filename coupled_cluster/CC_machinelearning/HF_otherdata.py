@@ -7,14 +7,18 @@ from rccsd_gs import *
 from machinelearning import *
 from func_lib import *
 from numba import jit
-from matrix_operations import *
-from helper_functions import *
 basis = 'cc-pVTZ'
 #basis="6-31G*"
 molecule=lambda x:  "H 0 0 0; F 0 0 %f"%x;molecule_name="HF"
 refx=[1.75]
 print(molecule(*refx))
-reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,return_overlap=True)
+try:
+    reference_determinant=np.loadtxt("inputs/HF_ref_det_%s.txt"%basis)
+    reference_overlap=np.loadtxt("inputs/HF_ref_S_%s.txt"%basis)
+except FileNotFoundError:
+    reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
+    np.savetxt("inputs/HF_ref_det_%s.txt"%basis,reference_determinant)
+    np.savetxt("inputs/HF_ref_S_%s.txt"%basis,reference_overlap)
 sample_geom1=np.linspace(1.5,4,10)
 import pickle
 geom_alphas1=np.linspace(1.4,4.1,81)
@@ -32,7 +36,7 @@ xtol=1e-8 #Convergence tolerance
 evcsolver.solve_CCSD_previousgeometry(target_Procrustes,xtol=xtol)
 niter_prevGeom=evcsolver.num_iter
 
-E_CCSD,E_HF=evcsolver.solve_CCSD_noProcrustes(xtol=xtol)
+E_HF,E_CCSD=evcsolver.solve_CCSD_noProcrustes(xtol=xtol)
 niter_CCSD=evcsolver.num_iter
 
 E_AMP_red_10=evcsolver.solve_AMP_CCSD(occs=1,virts=0.1,xtol=xtol)
@@ -60,6 +64,10 @@ outdata["energies_CCSD"]=E_CCSD
 outdata["energies_AMP_20"]=E_AMP_red_20
 outdata["energies_AMP_10"]=E_AMP_red_10
 outdata["energies_HF"]=E_HF
+outdata["sample_t1"]=t1s
+outdata["sample_t2"]=t2s
+
+
 file="energy_data/HF_AMPCCEVC_%s_%d.bin"%(basis,len(sample_geom1))
 import pickle
 with open(file,"wb") as f:

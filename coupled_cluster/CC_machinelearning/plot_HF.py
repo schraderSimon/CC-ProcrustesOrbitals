@@ -1,15 +1,11 @@
 import sys
 sys.path.append("../../libraries")
 from rccsd_gs import *
-from machinelearning import *
 from func_lib import *
-from numba import jit
-from matplotlib.ticker import MaxNLocator
-
-from matrix_operations import *
-from helper_functions import *
 basis = 'cc-pVTZ'
 import pickle
+from matplotlib.ticker import MaxNLocator
+
 num_points=7
 basis=basis
 file="energy_data/HF_machinelearning_%s_%d.bin"%(basis,num_points)
@@ -21,7 +17,15 @@ with open(file,"rb") as f:
 file="energy_data/HF_AMPCCEVC_%s_%d.bin"%(basis,num_points)
 with open(file,"rb") as f:
     data_AMP=pickle.load(f)
+
 CCSD_energies=np.array(data_AMP["energies_CCSD"])
+HF_energies=np.array(data_AMP["energies_HF"])
+
+if sum(HF_energies-CCSD_energies)<0: #This is because I made a small bug writing to file
+    temp=HF_energies.copy()
+    HF_energies=CCSD_energies.copy()
+    CCSD_energies=temp.copy()
+
 niter_AMP_startguess10_7=data_AMP["EVC_10"]
 niter_AMP_startguess20_7=data_AMP["EVC_20"]
 niter_prevGeom=data_AMP["prevGeom"]
@@ -109,8 +113,8 @@ ax[0].axvline(sample_geom2_7[-1],linestyle="--",color="red",alpha=0.3, label="Sa
 ax[0].plot(geom_alphas1,niter_ML_7,label="GP",color="blue")
 ax[0].plot(geom_alphas1,niter_ML_top_7,label="GP (auto)",color="red")
 
-ax[0].plot(geom_alphas1,niter_AMP_startguess10_7,label=r"tr. sum 10%",color="green")
-ax[0].plot(geom_alphas1,niter_AMP_startguess20_7,label=r"tr. sum 20%",color="darkorange")
+ax[0].plot(geom_alphas1,niter_AMP_startguess10_7,"--",label=r"tr. sum 10%",color="green")
+ax[0].plot(geom_alphas1,niter_AMP_startguess20_7,"--",label=r"tr. sum 20%",color="darkorange")
 ax[0].plot(geom_alphas1,niter_MP2,label="MP2",color="purple")
 ax[0].plot(geom_alphas1,niter_prevGeom,label="prevGeom",color="brown")
 
@@ -124,8 +128,8 @@ for x in (sample_geom2_10):
 ax[1].plot(geom_alphas1,niter_ML_10,label="GP",color="blue")
 ax[1].plot(geom_alphas1,niter_ML_top_10,label="GP (auto)",color="red")
 
-ax[1].plot(geom_alphas1,niter_AMP_startguess10_10,label=r"tr. sum 10%",color="green")
-ax[1].plot(geom_alphas1,niter_AMP_startguess20_10,label=r"tr. sum 20%",color="darkorange")
+ax[1].plot(geom_alphas1,niter_AMP_startguess10_10,"--",label=r"tr. sum 10%",color="green")
+ax[1].plot(geom_alphas1,niter_AMP_startguess20_10,"--",label=r"tr. sum 20%",color="darkorange")
 ax[1].plot(geom_alphas1,niter_MP2,label="MP2",color="purple")
 ax[1].plot(geom_alphas1,niter_prevGeom,label="prevGeom",color="brown")
 
@@ -145,3 +149,25 @@ plt.tight_layout()
 plt.savefig("plots/HF_niter.pdf")
 
 plt.show()
+
+correlation_energy=-(CCSD_energies-HF_energies)
+print(correlation_energy*1000)
+print(correlation_energy)
+p_error_ML_10=np.mean(abs(CCSD_energies-ML_energies_10)/correlation_energy)
+p_error_AMP_10_10=np.mean(abs(CCSD_energies-AMP_10_energies_10)/correlation_energy)
+p_error_AMP_20_10=np.mean(abs(CCSD_energies-AMP_20_energies_10)/correlation_energy)
+p_error_ML_adv_10=np.mean(abs(CCSD_energies-ML_top_energies_10)/correlation_energy)
+
+p_error_ML_7=np.mean(abs(CCSD_energies-ML_energies_7)/correlation_energy)
+p_error_AMP_10_7=np.mean(abs(CCSD_energies-AMP_10_energies_7)/correlation_energy)
+p_error_AMP_20_7=np.mean(abs(CCSD_energies-AMP_20_energies_7)/correlation_energy)
+p_error_ML_adv_7=np.mean(abs(CCSD_energies-ML_top_energies_7)/correlation_energy)
+print("Errors: ML 10: %f"%(1*(1-p_error_ML_10)))
+print("Errors: ML adv 10: %f"%(1*(1-p_error_ML_adv_10)))
+print("Errors: tr. sum 10, 10: %f"%(1*(1-p_error_AMP_10_10)))
+print("Errors: tr. sum 20, 10: %f"%(1*(1-p_error_AMP_20_10)))
+
+print("Errors: ML 7: %f"%(1*(1-p_error_ML_7)))
+print("Errors: ML adv 7: %f"%(1*(1-p_error_ML_adv_7)))
+print("Errors: tr. sum 10, 7: %f"%(1*(1-p_error_AMP_10_7)))
+print("Errors: tr. sum 20, 7: %f"%(1*(1-p_error_AMP_20_7)))

@@ -1,11 +1,7 @@
 import sys
 sys.path.append("../../libraries")
 from rccsd_gs import *
-from machinelearning import *
 from func_lib import *
-from numba import jit
-from matrix_operations import *
-from helper_functions import *
 basis = 'cc-pVTZ'
 import pickle
 
@@ -27,7 +23,9 @@ with open(file,"rb") as f:
     energy_dict=pickle.load(f)
 ML_sample_geometries=np.array(data_ML["sample_geometries"])
 ML_top_sample_geometries=np.array(data_ML_top["sample_geometries"])
-CCSD=np.array(energy_dict["energies_CCSD"]).reshape((10,10))
+CCSD_energies=CCSD=np.array(energy_dict["energies_CCSD"]).reshape((10,10))
+HF_energies=np.array(energy_dict["energies_HF"]).reshape((10,10))
+
 E_ML=np.array(data_ML["energies_ML"]).reshape((10,10))
 E_ML_auto=np.array(data_ML_top["energies_ML"]).reshape((10,10))
 E_AMPCCEVC_20=np.array(energy_dict["energies_AMP_20"]).reshape((10,10))
@@ -40,10 +38,6 @@ niter_ML=np.array(data_ML["ML"]).reshape((10,10))
 niter_ML_auto=np.array(data_ML_top["ML"]).reshape((10,10))
 niter_MP2=np.array(energy_dict["MP2"]).reshape((10,10))
 
-
-print(CCSD)
-print(E_ML)
-print(E_ML_auto)
 x=y=np.linspace(2,6,10)
 test_geom=energy_dict["test_geometries"]
 E_MLerr=abs(E_ML-CCSD)*1000
@@ -100,26 +94,26 @@ plt.savefig("plots/BeH2_energies.pdf")
 plt.show()
 
 fig,grid=plt.subplots(2,2,sharey=True,sharex=True,figsize=(15,10))
-im0=grid[0,0].pcolormesh(x, y, niter_ML-niter_MP2, cmap=cmap,shading='auto',vmin=np.amin(niter_ML-niter_MP2),vmax=np.amax(niter_ML-niter_MP2),alpha=alpha)
+im0=grid[0,0].pcolormesh(x, y, niter_ML, cmap=cmap,shading='auto',vmin=np.amin(niter_ML),vmax=np.amax(niter_ML),alpha=alpha)
 grid[0,0].set_title("GP")
 grid[0,0].set_xlabel(r"distance $H^2$-Be (Bohr)")
 grid[0,0].set_ylabel(r"distance $H^1$-Be (Bohr)")
 grid[0,0].scatter(ML_sample_geometries[:,0],ML_sample_geometries[:,1],color="magenta",marker="*")
 
-im2=grid[1,0].pcolormesh(x, y, niter_AMP_10-niter_MP2, cmap=cmap,shading='auto',vmin=np.amin(niter_AMP_10-niter_MP2),vmax=np.amax(niter_AMP_10-niter_MP2),alpha=alpha)
+im2=grid[1,0].pcolormesh(x, y, niter_AMP_10, cmap=cmap,shading='auto',vmin=np.amin(niter_AMP_10),vmax=np.amax(niter_AMP_10),alpha=alpha)
 grid[1,0].set_title("truncated sum (10%)")
 grid[1,0].set_xlabel(r"distance $H^2$-Be (Bohr)")
 grid[1,0].set_ylabel(r"distance $H^1$-Be (Bohr)")
 grid[1,0].scatter(ML_sample_geometries[:,0],ML_sample_geometries[:,1],color="magenta",marker="*")
 
-im3=grid[1,1].pcolormesh(x, y, niter_AMP_20-niter_MP2, cmap=cmap,shading='auto',vmin=np.amin(niter_AMP_20-niter_MP2),vmax=np.amax(niter_AMP_20-niter_MP2),alpha=alpha)
+im3=grid[1,1].pcolormesh(x, y, niter_AMP_20, cmap=cmap,shading='auto',vmin=np.amin(niter_AMP_20),vmax=np.amax(niter_AMP_20),alpha=alpha)
 grid[1,1].set_title("truncated sum (20%)")
 grid[1,1].set_xlabel(r"distance $H^2$-Be (Bohr)")
 grid[1,1].set_ylabel(r"distance $H^1$-Be (Bohr)")
 grid[1,1].scatter(ML_sample_geometries[:,0],ML_sample_geometries[:,1],color="magenta",marker="*")
 
 
-im1=grid[0,1].pcolormesh(x, y, niter_ML_auto-niter_MP2, cmap=cmap,shading='auto',vmin=np.amin(niter_ML_auto-niter_MP2),vmax=np.amax(niter_ML_auto-niter_MP2),alpha=alpha)
+im1=grid[0,1].pcolormesh(x, y, niter_ML_auto, cmap=cmap,shading='auto',vmin=np.amin(niter_ML_auto),vmax=np.amax(niter_ML_auto),alpha=alpha)
 
 grid[0,1].scatter(ML_top_sample_geometries[:,0],ML_top_sample_geometries[:,1],color="magenta",marker="*")
 
@@ -138,10 +132,16 @@ niter_ML_auto=np.array(niter_ML_auto,dtype=float)
 niter_ML=np.array(niter_ML,dtype=float)
 niter_AMP_10=np.array(niter_AMP_10,dtype=float)
 niter_AMP_20=np.array(niter_AMP_20,dtype=float)
-niter_ML_auto[niter_ML_auto == 1] = np.nan
-niter_AMP_10[niter_AMP_10 == 1] = np.nan
-niter_ML[niter_ML == 1] = np.nan
-niter_AMP_20[niter_AMP_20 == 1] = np.nan
+# We have to remove 9 points that are exactly the sample points, otherwise we are counting "too well".
+first_9=list(zip(*np.where(niter_ML_auto <= 2)))[:9]
+for elem in first_9:
+    i, j= elem
+    niter_ML_auto[i,j]=np.nan
+#niter_ML_auto[niter_ML_auto == 1] = np.nan
+
+#niter_AMP_10[niter_AMP_10 == 1] = np.nan
+#niter_ML[niter_ML == 1] = np.nan
+#niter_AMP_20[niter_AMP_20 == 1] = np.nan
 print("Average number of iterations")
 print("MP2: %f"%np.nanmean(niter_MP2))
 print("ML auto: %f"%np.nanmean(niter_ML_auto))
@@ -149,3 +149,13 @@ print("ML: %f"%np.nanmean(niter_ML))
 print("AMP 20: %f"%np.nanmean(niter_AMP_20))
 print("AMP 10: %f"%np.nanmean(niter_AMP_10))
 plt.show()
+correlation_energy=-(CCSD_energies-HF_energies)
+p_error_ML_10=np.mean(abs(CCSD_energies-E_ML)/correlation_energy)
+p_error_AMP_10_10=np.mean(abs(CCSD_energies-E_AMPCCEVC_10)/correlation_energy)
+p_error_AMP_20_10=np.mean(abs(CCSD_energies-E_AMPCCEVC_20)/correlation_energy)
+p_error_ML_adv_10=np.mean(abs(CCSD_energies-E_ML_auto)/correlation_energy)
+
+print("Errors: ML: %f"%(1*(1-p_error_ML_10)))
+print("Errors: ML adv: %f"%(1*(1-p_error_ML_adv_10)))
+print("Errors: tr. sum 10: %f"%(1*(1-p_error_AMP_10_10)))
+print("Errors: tr. sum 20: %f"%(1*(1-p_error_AMP_20_10)))

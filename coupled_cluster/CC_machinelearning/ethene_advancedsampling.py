@@ -7,8 +7,6 @@ from rccsd_gs import *
 from machinelearning import *
 from func_lib import *
 from numba import jit
-from matrix_operations import *
-from helper_functions import *
 basis = 'cc-pVDZ'
 #basis="6-31G*"
 molecule_name="ethene"
@@ -19,11 +17,18 @@ def molecule(x):
     return "C 0 0 0 ;C 0 0 %f;H 0 1.728121 -1.0656 ;H 0 -1.728121 -1.0656 ;H 0 1.728121 %f;H 0 -1.728121 %f"%(C_pos,H_pos,H_pos)
 refx=[0]
 print(molecule(*refx))
-reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
+"""This procedure guarantees that exactly the same coefficient matrices at all geometries are produced, for reproducibility"""
+try:
+    reference_determinant=np.loadtxt("inputs/ethene_ref_det.txt")
+    reference_overlap=np.loadtxt("inputs/ethene_ref_S.txt")
+except FileNotFoundError:
+    reference_determinant,reference_overlap=get_reference_determinant(molecule,refx,basis,charge,True)
+    np.savetxt("inputs/ethene_ref_det.txt",reference_determinant)
+    np.savetxt("inputs/ethene_ref_S.txt",reference_overlap)
 sample_geom1=np.linspace(-0.9,2.7,2)
 num_samples=2
-max_samples=10
-sample_indices=[0,80]
+max_samples=7
+sample_indices=[0,80] #Which samples to start with (in the index list of geom_alphas1)
 geom_alphas1=np.linspace(-1,2.8,77)
 target_U,target_C=get_U_matrix(geom_alphas1,molecule,basis,reference_determinant,reference_overlap)
 target_U_sampling=target_U[3:-3] #Ignore the first and the last in order to not sample "outside" of the boundary
@@ -36,14 +41,14 @@ sample_geom=[[x] for x in sample_geom1]
 
 t1s,t2s,l1s,l2s,sample_energies=setUpsamples(sample_geom,molecule,basis,reference_determinant,reference_overlap,mix_states=False,type="procrustes")
 
-while num_samples < max_samples: #As long as I want to add samples:
+while num_samples < max_samples: #As long as samples are to be added
     evcsolver=EVCSolver(geom_alphas,molecule,basis,reference_determinant,t1s,t2s,l1s,l2s,reference_overlap,sample_x=sample_geom,mix_states=False)
 
     """
     Set up machine learning for t amplitudes
     """
     kernel=RBF_kernel_unitary_matrices #Use standard RBF kernel
-    stds=np.ones(len(geom_alphas_sampling1))
+    stds=np.zeros(len(geom_alphas_sampling1))
     predictions=[]
 
     """
@@ -51,10 +56,10 @@ while num_samples < max_samples: #As long as I want to add samples:
     """
     t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
     for i in range(len(sample_geom)):
-        mean,std=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U_sampling)
+        mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U_sampling)
         predictions.append(mean+np.mean(t_coefs[i]))
         stds+=(std)
-    largest_std_pos=np.argmax(stds) #The position with the largest std
+    largest_std_pos=np.argmax(stds**2) #The position with the largest variance
     sample_geom.append(geom_alphas_sampling[largest_std_pos])
     sample_geom1=list(sample_geom1)
     sample_geom1.append(geom_alphas_sampling1[largest_std_pos])
@@ -81,9 +86,11 @@ predictions=[]
 Set up machine learning for t amplitudes
 """
 t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
+ml_params=[]
 for i in range(len(sample_geom)):
-    mean,std=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
+    mean,std,parameters=get_model(sample_U,t_coefs[i]-np.mean(t_coefs[i]),kernel,target_U)
     predictions.append(mean+np.mean(t_coefs[i]))
+ml_params.append(parameters)
 
 t1s_orth,t2s_orth,t_coefs=orthonormalize_ts(evcsolver.t1s,evcsolver.t2s)
 t1_machinelearn=[]
@@ -118,6 +125,11 @@ outdata["target_U"]=target_U
 outdata["CC_sample_amplitudes_procrustes"]=[t1s_orth,t2s_orth]
 outdata["CC_sample_amplitudes"]=[t1s,t2s,l1s,l2s]
 outdata["reference_determinant"]=reference_determinant
+outdata["sample_t1"]=t1s_orth
+outdata["sample_t2"]=t2s_orth
+outdata["t_transform"]=t_coefs
+
+outdata["Machine_learning_parameters"]=ml_params
 
 outdata["energies_ML"]=E_ML_U
 file="energy_data/ethene_machinelearning_bestGeometries_%s_%d.bin"%(basis,len(sample_geom1))

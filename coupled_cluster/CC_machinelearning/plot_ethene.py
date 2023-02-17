@@ -1,11 +1,7 @@
 import sys
 sys.path.append("../../libraries")
 from rccsd_gs import *
-from machinelearning import *
 from func_lib import *
-from numba import jit
-from matrix_operations import *
-from helper_functions import *
 basis = 'cc-pVDZ'
 import pickle
 from matplotlib.ticker import MaxNLocator
@@ -20,6 +16,7 @@ with open(file,"rb") as f:
 file="energy_data/ethene_AMPCCEVC_%s_%d.bin"%(basis,num_points)
 with open(file,"rb") as f:
     data_AMP=pickle.load(f)
+HF_energies=np.array(data_AMP["energies_HF"])
 CCSD_energies=np.array(data_AMP["energies_CCSD"])
 niter_AMP_startguess10_7=data_AMP["EVC_10"]
 niter_AMP_startguess20_7=data_AMP["EVC_20"]
@@ -72,8 +69,8 @@ ax[0].axvline(sample_geom2_7[-1],linestyle="--",color="red",alpha=0.3, label="Sa
 ax[0].plot(geom_alphas1,1000*(CCSD_energies-ML_energies_7),label="GP",color="blue")
 ax[0].plot(geom_alphas1,1000*(CCSD_energies-ML_top_energies_7),color="red",label="GP (auto)")
 ax[0].plot(geom_alphas1,1000*(CCSD_energies-AMP_10_energies_7),label=r"tr. sum 10%",color="green")
-#ax[0].plot(geom_alphas1,1000*(CCSD_energies-AMP_20_energies_7),label=r"tr. sum 20%",color="darkorange")
-ax[0].fill_between(geom_alphas1,-1.6,1.6,color="aqua",alpha=0.3,label="Chemical accuracy")
+ax[0].plot(geom_alphas1,1000*(CCSD_energies-AMP_20_energies_7),label=r"tr. sum 20%",color="darkorange")
+#ax[0].fill_between(geom_alphas1,-1.6,1.6,color="aqua",alpha=0.3,label="Chemical accuracy")
 ax[0].set_ylabel(r"$\Delta E$ (mHartree)")
 for x in (sample_geom1_10):
     ax[1].axvline(x,linestyle="--",color="blue",alpha=0.3)
@@ -82,7 +79,7 @@ for x in (sample_geom2_10):
 
 ax[1].plot(geom_alphas1,1000*(CCSD_energies-ML_energies_10),label="GP",color="blue")
 ax[1].plot(geom_alphas1,1000*(CCSD_energies-AMP_10_energies_10),label=r"tr. sum 10%",color="green")
-#ax[1].plot(geom_alphas1,1000*(CCSD_energies-AMP_20_energies_10),label=r"tr. sum 20%")
+ax[1].plot(geom_alphas1,1000*(CCSD_energies-AMP_20_energies_10),label=r"tr. sum 20%",color="darkorange")
 ax[1].plot(geom_alphas1,1000*(CCSD_energies-ML_top_energies_10),label="GP (auto)",color="red")
 
 ax[1].set_ylabel(r"$\Delta E$ (mHartree)")
@@ -111,7 +108,7 @@ ax[0].plot(geom_alphas1,niter_ML_7,label="GP",color="blue")
 ax[0].plot(geom_alphas1,niter_ML_top_7,label="GP (auto)",color="red")
 
 ax[0].plot(geom_alphas1,niter_AMP_startguess10_7,label=r"tr. sum 10%",color="green")
-#ax[0].plot(geom_alphas1,niter_AMP_startguess20_7,label=r"tr. sum 20%",color="darkorange")
+ax[0].plot(geom_alphas1,niter_AMP_startguess20_7,"--",label=r"tr. sum 20%",color="darkorange")
 ax[0].plot(geom_alphas1,niter_MP2,label="MP2",color="purple")
 ax[0].plot(geom_alphas1,niter_prevGeom,label="prevGeom",color="brown")
 
@@ -126,11 +123,11 @@ ax[1].plot(geom_alphas1,niter_ML_10,label="GP",color="blue")
 ax[1].plot(geom_alphas1,niter_ML_top_10,label="GP (auto)",color="red")
 
 ax[1].plot(geom_alphas1,niter_AMP_startguess10_10,label=r"tr. sum 10%",color="green")
-#ax[1].plot(geom_alphas1,niter_AMP_startguess20_10,label=r"tr. sum 20%",color="darkorange")
+ax[1].plot(geom_alphas1,niter_AMP_startguess20_10,"--",label=r"tr. sum 20%",color="darkorange")
 ax[1].plot(geom_alphas1,niter_MP2,label="MP2",color="purple")
 ax[1].plot(geom_alphas1,niter_prevGeom,label="prevGeom",color="brown")
 
-ax[1].set_ylim([6,21])
+ax[1].set_ylim([4,21])
 
 ax[0].set_ylim([6,24])
 ax[1].set_ylabel(r"Number of iterations")
@@ -148,3 +145,24 @@ plt.tight_layout()
 plt.savefig("plots/ethene_niter.pdf")
 
 plt.show()
+correlation_energy=-(CCSD_energies-HF_energies)
+print(correlation_energy*1000)
+print(correlation_energy)
+p_error_ML_10=np.mean(abs(CCSD_energies-ML_energies_10)/correlation_energy)
+p_error_AMP_10_10=np.mean(abs(CCSD_energies-AMP_10_energies_10)/correlation_energy)
+p_error_AMP_20_10=np.mean(abs(CCSD_energies-AMP_20_energies_10)/correlation_energy)
+p_error_ML_adv_10=np.mean(abs(CCSD_energies-ML_top_energies_10)/correlation_energy)
+
+p_error_ML_7=np.mean(abs(CCSD_energies-ML_energies_7)/correlation_energy)
+p_error_AMP_10_7=np.mean(abs(CCSD_energies-AMP_10_energies_7)/correlation_energy)
+p_error_AMP_20_7=np.mean(abs(CCSD_energies-AMP_20_energies_7)/correlation_energy)
+p_error_ML_adv_7=np.mean(abs(CCSD_energies-ML_top_energies_7)/correlation_energy)
+print("Errors: ML 10: %f"%(1*(1-p_error_ML_10)))
+print("Errors: ML adv 10: %f"%(1*(1-p_error_ML_adv_10)))
+print("Errors: tr. sum 10, 10: %f"%(1*(1-p_error_AMP_10_10)))
+print("Errors: tr. sum 20, 10: %f"%(1*(1-p_error_AMP_20_10)))
+
+print("Errors: ML 7: %f"%(1*(1-p_error_ML_7)))
+print("Errors: ML adv 7: %f"%(1*(1-p_error_ML_adv_7)))
+print("Errors: tr. sum 10, 7: %f"%(1*(1-p_error_AMP_10_7)))
+print("Errors: tr. sum 20, 7: %f"%(1*(1-p_error_AMP_20_7)))

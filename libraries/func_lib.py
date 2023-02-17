@@ -21,7 +21,10 @@ def get_U_matrix(x,molecule,basis,reference_determinant,reference_overlap):
     C_matrices=[]
     for xval in x:
         mol = gto.Mole()
-        mol.atom = molecule(xval)
+        if isinstance(xval,tuple) or isinstance(xval,np.ndarray) or isinstance(xval,list):
+        	mol.atom=molecule(*xval)
+        else:
+        	mol.atom=molecule(xval)
         mol.basis = basis
         mol.unit="bohr"
         mol.build()

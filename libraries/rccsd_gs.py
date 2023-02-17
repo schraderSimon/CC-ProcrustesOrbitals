@@ -1,15 +1,21 @@
 from qs_ref import *
 from quantum_systems.custom_system import construct_pyscf_system_rhf
 import basis_set_exchange as bse
-from coupled_cluster.rccsd import RCCSD, TDRCCSD
+from rccsd import RCCSD
 import coupled_cluster
 import rhs_t
 from coupled_cluster.rccsd import energies as rhs_e
 from opt_einsum import contract
-
+import numpy as np
 from scipy.optimize import minimize, root,newton
 import time
 np.set_printoptions(linewidth=300,precision=8,suppress=True)
+class sucess():
+    """Mini helper class that resembles scipy's OptimizeResult."""
+    def __init__(self,x,success,nfev):
+        self.x=x
+        self.success=success
+        self.nfev=nfev
 
 def basischange_clusterOperator(U,t1,t2):
     "Use U as change of basis operator to go from basis t1 to a new t1-tilde, same for t2"
@@ -20,9 +26,6 @@ def basischange_clusterOperator(U,t1,t2):
     new_t1 = contract('ij,ai,ab->bj', U_occ, t1, U_virt)
     new_t2 = contract("ik,jl,abij,ac,bd->cdkl",U_occ,U_occ,t2,U_virt,U_virt)
     return new_t1,new_t2
-    return t1,t2
-    #eri_ao = mol.intor('int2e')
-    #eri_mo = ao2mo.incore.full(eri_ao, mo_coeff)
 
 def orthonormalize_ts(t1s: list,t2s: list):
     """
@@ -56,6 +59,41 @@ def orthonormalize_ts(t1s: list,t2s: list):
         t1_new.append(new_t1)
         t2_new.append(new_t2)
     return t1_new,t2_new,coefs
+def orthonormalize_ts_lowdin(t1s: list,t2s: list):
+    """
+    Given lists of t1 and t2 amplitudes, orthogonalizes the vectors t_1\osumt_2 using SVD
+    Input:
+    t1s,t2s (lists): Lists of same lengths for t1 and t2 amplitudes
+
+    returns:
+    t1s,t2s (lists): Orthogonalized lists with the same span
+    coefs (matrix): The linear combinations to express original elements in terms of new elements
+    """
+    t_tot=[]
+    a,i=t1s[0].shape
+    for j in range(len(t1s)):
+        t_tot.append(np.concatenate((t1s[j],t2s[j]),axis=None)) #   T1 \osum T2
+    t_tot=np.array(t_tot)
+    t_tot_old=t_tot.copy()
+    t_tot=t_tot
+    overlap=t_tot@t_tot.T
+    print(overlap)
+    overlap_12=scipy.linalg.sqrtm(overlap)
+    t_tot=np.linalg.inv(overlap_12)@t_tot
+    t1_new=[]
+    t2_new=[]
+    coefs=np.zeros((len(t1s),len(t1s))) #Coefficients to transform between the old and the new representations
+    for j in range(len(t1s)):
+        for k in range(len(t1s)):
+            coefs[j,k]=t_tot_old[j,:]@t_tot[k,:]
+
+    for j in range(len(t1s)):
+        new_t1=np.reshape(t_tot[j,:a*i],(a,i))
+        new_t2=np.reshape(t_tot[j,a*i:],(a,a,i,i))
+        t1_new.append(new_t1)
+        t2_new.append(new_t2)
+    return t1_new,t2_new,coefs
+
 def setUpsamples(sample_x,molecule_func,basis,rhf_mo_ref,rhf_S_ref,mix_states=False,type="procrustes",weights=None):
     """
     Sets up lambda and t-amplitudes for a set of geometries.
@@ -81,10 +119,7 @@ def setUpsamples(sample_x,molecule_func,basis,rhf_mo_ref,rhf_S_ref,mix_states=Fa
     l2s=[]
     sample_energies=[]
     for k,x in enumerate(sample_x):
-        if isinstance(rhf_mo_ref,list):
-            ref_state=rhf_mo_ref[k]
-        else:
-            ref_state=rhf_mo_ref
+        ref_state=rhf_mo_ref
         system = construct_pyscf_system_rhf_ref(
             molecule=molecule_func(*x),
             basis=basis,
@@ -112,12 +147,11 @@ def setUpsamples(sample_x,molecule_func,basis,rhf_mo_ref,rhf_S_ref,mix_states=Fa
 
 class EVCSolver():
     """
-    Class to solve EVC equations. Contains both WF-CCEVC and AMP-CCEVC functions. Uses restricted determinants and restricted CC theory.
+    Class to solve EVC equations. Contains AMP-CCEVC and some helper functions functions. Uses restricted determinants and restricted CC theory.
 
     Methods:
     __init__: Initialize
     solve_CCSD: Return CCSD energies at self.all_x
-    solve_WFCCSD: solves WF-CCEVC equations and returns WF-CCEVC energies for given sample amplitudes & lambda equations
     solve_AMP_CCSD: solves AMP-CCEVC equations and returns AMP-CCEVC energies for given sample amplitudes
     """
     def __init__(self,all_x,molecule_func,basis,reference_determinant,t1s,t2s,l1s,l2s,reference_overlap=None,givenC=False,sample_x=None,mix_states=False,natorb_truncation=None):
@@ -152,10 +186,7 @@ class EVCSolver():
         E_CCSD=[]
         E_HF=[]
         for k,x_alpha in enumerate(self.all_x):
-            if isinstance(self.reference_determinants,list):
-                ref_state=self.reference_determinants[k]
-            else:
-                ref_state=self.reference_determinants
+            ref_state=self.reference_determinants
             system = construct_pyscf_system_rhf( #Construct a canonical-orbital HF state.
                 molecule=self.molecule_func(*x_alpha),
                 basis=self.basis,
@@ -180,10 +211,7 @@ class EVCSolver():
         E_CCSD=[]
         self.num_iter=[]
         for k,x_alpha in enumerate(self.all_x):
-            if isinstance(self.reference_determinants,list):
-                ref_state=self.reference_determinants[k]
-            else:
-                ref_state=self.reference_determinants
+            ref_state=self.reference_determinants
             system,C_canonical = construct_pyscf_system_rhf_ref( #With these parameters, canonical orbitals are used!
                 molecule=self.molecule_func(*x_alpha),
                 basis=self.basis,
@@ -204,7 +232,6 @@ class EVCSolver():
                 molecule=pyscf.M(atom=self.molecule_func(*x_alpha),basis=self.basis)
                 S=molecule.intor("int1e_ovlp")
                 C_new,Uinv=localize_procrustes_ovlp(None,C_canonical,None,C_prev,S,S_prev,nelec=sum(molecule.nelec), return_R=True) #Unitary to go from canonical orbitals to Procrustes
-                #But we want the inverse...
                 U=np.conj(Uinv.T) #The unitary operation to go from Procrustes orbitals to canonical orbitals!
                 t1_new,t2_new=basischange_clusterOperator(U,start_guess_amplitudes[0],start_guess_amplitudes[1])
                 start_guess_amplitudes=[t1_new,t2_new]
@@ -234,10 +261,7 @@ class EVCSolver():
         E_CCSD=[]
         self.num_iter=[]
         for k,x_alpha in enumerate(self.all_x):
-            if isinstance(self.reference_determinants,list):
-                ref_state=self.reference_determinants[k]
-            else:
-                ref_state=self.reference_determinants
+            ref_state=self.reference_determinants
             reference_overlap=self.reference_overlap
             system,C_canonical = construct_pyscf_system_rhf_ref( #With these parameters, canonical orbitals are used!
                 molecule=self.molecule_func(*x_alpha),
@@ -252,10 +276,6 @@ class EVCSolver():
             )
             print(x_alpha)
             if basis_change_from_Procrustes:
-                #molecule=pyscf.M(atom=self.molecule_func(*x_alpha),basis=self.basis)
-                #S=molecule.intor("int1e_ovlp")
-                #C_new,Uinv=localize_procrustes_ovlp(None,C_canonical,None,ref_state,S,reference_overlap,nelec=sum(molecule.nelec), return_R=True) #Unitary to go from canonical orbitals to Procrustes
-                #U=np.conj(Uinv.T) #The unitary operation to go from Procrustes orbitals to canonical orbitals!
                 U=np.linalg.inv(procrustes_orbitals[k])@C_canonical
                 t1_new,t2_new=basischange_clusterOperator(U,start_guess_t1_list[k],start_guess_t2_list[k])
                 start_guess_amplitudes=[t1_new,t2_new]
@@ -267,19 +287,17 @@ class EVCSolver():
             E_CCSD.append(system.compute_reference_energy().real+rccsd.compute_energy().real)
             print("Number iterations: %d"%rccsd.num_iterations)
             self.num_iter.append(rccsd.num_iterations)
-            #Add number of iterations. niter.append(rccsd.num_iter)
-            #except:
-            #    E_CCSD.append(np.nan)
         return E_CCSD
     def calculate_CCSD_energies_from_guess(self,start_guess_t1_list,start_guess_t2_list,procrustes_orbitals,basis_change_from_Procrustes=True,xtol=1e-8):
+        """
+        Returns CCSD energies given the t1 and t2 amplitudes in Procrustes basis.
+        If basis_change_from_Procrustes is true and procrustes orbitals are given, energies
+        are calculated with respect to Procrustes orbitals.
+        """
         E_CCSD=[]
         for k,x_alpha in enumerate(self.all_x):
-            if isinstance(self.reference_determinants,list):
-                ref_state=self.reference_determinants[k]
-            else:
-                ref_state=self.reference_determinants
+            ref_state=self.reference_determinants
             reference_overlap=self.reference_overlap
-            #sys.exit(1)
             system,C_canonical = construct_pyscf_system_rhf_ref( #With these parameters, canonical orbitals are used!
                 molecule=self.molecule_func(*x_alpha),
                 basis=self.basis,
@@ -292,10 +310,6 @@ class EVCSolver():
                 return_C=True
             )
             if basis_change_from_Procrustes:
-                #molecule=pyscf.M(atom=self.molecule_func(*x_alpha),basis=self.basis)
-                #S=molecule.intor("int1e_ovlp")
-                #C_new,Uinv=localize_procrustes_ovlp(None,C_canonical,None,ref_state,S,reference_overlap,nelec=sum(molecule.nelec), return_R=True) #Unitary to go from canonical orbitals to Procrustes
-                #U=Uinv.T
                 U=np.linalg.inv(procrustes_orbitals[k])@C_canonical
                 t1_new,t2_new=basischange_clusterOperator(U,start_guess_t1_list[k],start_guess_t2_list[k])
                 start_guess_amplitudes=[t1_new,t2_new]
@@ -362,10 +376,7 @@ class EVCSolver():
         self.t1s_final=[] #List of the t1 solutions for each x
         self.t2s_final=[] #list of the t2 solutions for each x
         for k,x_alpha in enumerate(self.all_x):
-            if isinstance(self.reference_determinants,list):
-                ref_state=self.reference_determinants[k]
-            else:
-                ref_state=self.reference_determinants
+            ref_state=self.reference_determinants
             system = construct_pyscf_system_rhf_ref(
                 molecule=self.molecule_func(*x_alpha),
                 basis=self.basis,
