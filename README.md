@@ -1,4 +1,4 @@
-# CC-ProcrustesOrbitals
+# AMP-CCEVC
 
 This repo contains all of the code required to reproduce the results from our paper _link follows_. 
 
