@@ -1,6 +1,6 @@
 # AMP-CCEVC
 
-This repo contains all of the code required to reproduce the results from our paper _link follows_.
+This repo contains all of the code required to reproduce the results from our paper [https://doi.org/10.1063/5.0141145](https://doi.org/10.1063/5.0141145) .
 
 ## Prerequisites
 In addition to standard python libraries, [pyscf](https://pyscf.org/) is required, as are HyQD's [coupled cluster module](https://github.com/HyQD/coupled-cluster) and [Quantum Systems module](https://github.com/HyQD/quantum-systems). Quantum systems requires [BSE](https://github.com/MolSSI-BSE/basis_set_exchange).
